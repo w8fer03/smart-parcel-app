@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Smart Laundry App</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Modern CSS Variables for easy theme management */
+        :root {
+            --primary: #4F46E5;
+            --primary-light: #7C3AED;
+            --bg-color: #F3F4F6;
+            --card-bg: #FFFFFF;
+            --text-main: #1F2937;
+            --text-muted: #6B7280;
+            --success: #10B981;
+            --danger: #EF4444;
+            --warning: #F59E0B;
+        }
+
+        /* Reset body to fill the whole screen */
+        body { 
+            font-family: 'Poppins', sans-serif; 
+            background-color: var(--bg-color); 
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Responsive App Container */
+        .app-container { 
+            width: 100%; 
+            min-height: 100vh; /* Takes up 100% of the screen height */
+            display: flex; 
+            flex-direction: column; 
+            background: var(--bg-color);
+        }
+
+        /* Gradient Header with Safe Area Support for Notches */
+        .header { 
+            background: linear-gradient(135deg, var(--primary), var(--primary-light)); 
+            color: white; 
+            /* env() handles the notch on iPhones and modern Androids */
+            padding-top: calc(env(safe-area-inset-top, 20px) + 20px); 
+            padding-bottom: 25px;
+            padding-left: 20px;
+            padding-right: 20px;
+            text-align: center; 
+            font-size: 22px; 
+            font-weight: 600; 
+            border-bottom-left-radius: 24px;
+            border-bottom-right-radius: 24px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .content { 
+            padding: 20px; 
+            flex-grow: 1; 
+            overflow-y: auto; 
+            /* Add bottom padding for devices with home bars */
+            padding-bottom: calc(env(safe-area-inset-bottom, 20px) + 20px);
+        }
+
+        /* Floating Cards */
+        .card { 
+            background: var(--card-bg); 
+            padding: 20px; 
+            border-radius: 20px; 
+            margin-bottom: 20px; 
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.025); 
+        }
+
+        .card h4 {
+            margin: 0 0 15px 0;
+            color: var(--text-muted);
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        /* Status Layout */
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid #F3F4F6;
+        }
+        .status-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .status-label { color: var(--text-muted); font-size: 15px; }
+        .status-value { font-weight: 600; color: var(--text-main); font-size: 15px; text-align: right; }
+        
+        /* Dynamic Badges for Weather */
+        .badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            color: white;
+            display: inline-block;
+        }
+        .badge-clear { background: var(--success); }
+        .badge-rain { background: var(--primary); }
+
+        /* Modern Buttons */
+        button { 
+            width: 100%; 
+            padding: 16px; 
+            margin-bottom: 12px; 
+            border: none; 
+            border-radius: 14px; 
+            font-size: 16px; 
+            font-weight: 600;
+            cursor: pointer; 
+            color: white; 
+            transition: transform 0.1s ease, opacity 0.2s ease;
+            font-family: 'Poppins', sans-serif;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            /* Prevent text selection on mobile tap */
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        button:active { transform: scale(0.97); }
+        
+        .btn-extend { background: linear-gradient(135deg, var(--warning), #D97706); }
+        .btn-retract { background: linear-gradient(135deg, var(--danger), #B91C1C); }
+        .btn-auto { background: linear-gradient(135deg, var(--success), #059669); margin-bottom: 0; }
+
+        /* Stylized Logs */
+        .log-box { 
+            max-height: 250px; 
+            overflow-y: auto; 
+            padding-right: 5px;
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+        }
+
+        .log-entry { 
+            margin-bottom: 10px; 
+            background: #F9FAFB;
+            padding: 12px;
+            border-radius: 12px;
+            color: var(--text-main);
+            font-size: 13px;
+            border-left: 4px solid var(--primary);
+        }
+        
+        .log-time {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="header">Laundry Monitor</div>
+    
+    <div class="content">
+        <div class="card">
+            <h4>Live Status</h4>
+            <div class="status-row">
+                <span class="status-label">Weather</span>
+                <span id="weather_status" class="status-value badge badge-clear">Loading...</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Motor Line</span>
+                <span id="motor_status" class="status-value">Loading...</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">System Mode</span>
+                <span id="mode_status" class="status-value">Loading...</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h4>Manual Overrides</h4>
+            <button class="btn-extend" onclick="setMode(2)">Extend Line (Out)</button>
+            <button class="btn-retract" onclick="setMode(1)">Retract Line (In)</button>
+            <button class="btn-auto" onclick="setMode(0)">Restore Auto Mode</button>
+        </div>
+
+        <div class="card">
+            <h4>Activity Log</h4>
+            <div class="log-box" id="log_container">
+                </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<script>
+    // 1. FIREBASE CONFIGURATION (Replace with your details!)
+    // Go to Firebase Project Settings -> General -> Scroll down and add a "Web App" (</> icon) to get these keys.
+    const firebaseConfig = {
+        apiKey: "YOUR_API_KEY",
+        authDomain: "YOUR_PROJECT.firebaseapp.com",
+        databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+        projectId: "YOUR_PROJECT",
+        storageBucket: "YOUR_PROJECT.appspot.com",
+        messagingSenderId: "123456789",
+        appId: "YOUR_APP_ID"
+    };
+
+    // 2. INITIALIZE FIREBASE
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // 3. LISTEN FOR REAL-TIME STATUS CHANGES
+    db.ref('system_status').on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            // Update Weather
+            let weatherEl = document.getElementById('weather_status');
+            weatherEl.innerText = data.weather || "Unknown";
+            weatherEl.className = (data.weather === 'Raining') ? 'status-value badge badge-rain' : 'status-value badge badge-clear';
+
+            // Update Motor
+            document.getElementById('motor_status').innerText = data.motor || "Unknown";
+            
+            // Update Mode
+            let modeText = "Auto";
+            if(data.override_mode === 1) modeText = "Manual Retract";
+            if(data.override_mode === 2) modeText = "Manual Extend";
+            document.getElementById('mode_status').innerText = modeText;
+        }
+    });
+
+    // 4. LISTEN FOR REAL-TIME LOGS
+    db.ref('event_logs').limitToLast(10).on('value', (snapshot) => {
+        let logHTML = "";
+        // Firebase orders by key, so we reverse it to show newest at the top
+        const logs = [];
+        snapshot.forEach((child) => { logs.push(child.val()); });
+        logs.reverse(); 
+
+        logs.forEach(log => {
+            logHTML += `
+                <div class="log-entry">
+                    <span class="log-time">${log.timestamp}</span>
+                    ${log.event_desc}
+                </div>`;
+        });
+        document.getElementById('log_container').innerHTML = logHTML;
+    });
+
+    // 5. SEND BUTTON COMMANDS TO FIREBASE
+    function setMode(modeValue) {
+        // Update the override mode
+        db.ref('system_status').update({
+            override_mode: modeValue
+        });
+
+        // Add a log entry
+        let modeText = (modeValue === 0) ? "Auto Mode" : ((modeValue === 1) ? "Manual Retract" : "Manual Extend");
+        let now = new Date().toLocaleTimeString();
+        
+        db.ref('event_logs').push({
+            timestamp: now,
+            event_desc: `User set system to: ${modeText}`
+        });
+    }
+
+    // Initialize default values if the database is empty
+    db.ref('system_status').once('value', snapshot => {
+        if (!snapshot.exists()) {
+            db.ref('system_status').set({ weather: "Clear", motor: "Extended", override_mode: 0 });
+        }
+    });
+</script>
+
+</body>
+</html>
