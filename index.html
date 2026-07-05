@@ -232,7 +232,7 @@
 };
 
 
-    // 2. INITIALIZE FIREBASE
+   // 2. INITIALIZE FIREBASE
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
@@ -242,17 +242,39 @@
         if (data) {
             // Update Weather
             let weatherEl = document.getElementById('weather_status');
-            weatherEl.innerText = data.weather || "Unknown";
-            weatherEl.className = (data.weather === 'Raining') ? 'status-value badge badge-rain' : 'status-value badge badge-clear';
+            if(weatherEl) {
+                weatherEl.innerText = data.weather || "Unknown";
+                weatherEl.className = (data.weather === 'Raining') ? 'status-value badge badge-rain' : 'status-value badge badge-clear';
+            }
 
             // Update Motor
-            document.getElementById('motor_status').innerText = data.motor || "Unknown";
+            let motorEl = document.getElementById('motor_status');
+            if(motorEl) motorEl.innerText = data.motor || "Unknown";
             
             // Update Mode
-            let modeText = "Auto";
-            if(data.override_mode === 1) modeText = "Manual Retract";
-            if(data.override_mode === 2) modeText = "Manual Extend";
-            document.getElementById('mode_status').innerText = modeText;
+            let modeEl = document.getElementById('mode_status');
+            if(modeEl) {
+                let modeText = "Auto";
+                if(data.override_mode === 1) modeText = "Manual Retract";
+                if(data.override_mode === 2) modeText = "Manual Extend";
+                modeEl.innerText = modeText;
+            }
+
+            // Update Parcel Status (THIS IS THE NEW PART)
+            let parcelEl = document.getElementById('parcel_status');
+            if(parcelEl) {
+                if (data.parcel_present === true) {
+                    parcelEl.innerText = "📦 Parcel Detected!";
+                    parcelEl.style.color = "#28a745"; // Green text
+                    parcelEl.style.fontWeight = "bold";
+                } else if (data.parcel_present === false) {
+                    parcelEl.innerText = "Empty";
+                    parcelEl.style.color = "#6c757d"; // Grey text
+                    parcelEl.style.fontWeight = "normal";
+                } else {
+                    parcelEl.innerText = "Loading...";
+                }
+            }
         }
     });
 
@@ -271,30 +293,48 @@
                     ${log.event_desc}
                 </div>`;
         });
-        document.getElementById('log_container').innerHTML = logHTML;
+        let logContainer = document.getElementById('log_container');
+        if(logContainer) logContainer.innerHTML = logHTML;
     });
 
     // 5. SEND BUTTON COMMANDS TO FIREBASE
     function setMode(modeValue) {
-        // Update the override mode
+        // 1. Send the Manual command to Firebase
         db.ref('system_status').update({
             override_mode: modeValue
         });
 
-        // Add a log entry
-        let modeText = (modeValue === 0) ? "Auto Mode" : ((modeValue === 1) ? "Manual Retract" : "Manual Extend");
+        // 2. Log the manual action
+        let modeText = (modeValue === 1) ? "Manual Retract" : "Manual Extend";
         let now = new Date().toLocaleTimeString();
         
         db.ref('event_logs').push({
             timestamp: now,
-            event_desc: `User set system to: ${modeText}`
+            event_desc: `User triggered: ${modeText}`
         });
+
+        // 3. Automatically revert to Auto Mode (0) after 4 seconds
+        setTimeout(() => {
+            db.ref('system_status').update({
+                override_mode: 0
+            });
+            
+            db.ref('event_logs').push({
+                timestamp: new Date().toLocaleTimeString(),
+                event_desc: `System auto-reverted to Auto Mode`
+            });
+        }, 4000); // 4000 milliseconds = 4 seconds delay
     }
 
     // Initialize default values if the database is empty
     db.ref('system_status').once('value', snapshot => {
         if (!snapshot.exists()) {
-            db.ref('system_status').set({ weather: "Clear", motor: "Extended", override_mode: 0 });
+            db.ref('system_status').set({ 
+                weather: "Clear", 
+                motor: "Retracted", 
+                override_mode: 0,
+                parcel_present: false // Added default parcel state
+            });
         }
     });
 </script>
