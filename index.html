@@ -170,34 +170,47 @@
     <div class="header">Laundry Monitor</div>
     
     <div class="content">
-        <div class="card">
-            <h4>Live Status</h4>
-            <div class="status-row">
-                <span class="status-label">Weather</span>
-                <span id="weather_status" class="status-value badge badge-clear">Loading...</span>
-            </div>
-            <div class="status-row">
-                <span class="status-label">Motor Line</span>
-                <span id="motor_status" class="status-value">Loading...</span>
-            </div>
-            <div class="status-row">
-                <span class="status-label">System Mode</span>
-                <span id="mode_status" class="status-value">Loading...</span>
-            </div>
+    <div class="card">
+        <h4>Live Status</h4>
+        
+        <!-- NEW: Parcel Detection Status Row -->
+        <div class="status-row">
+            <span class="status-label">Box Contents</span>
+            <span id="parcel_status" class="status-value" style="font-weight: bold;">Loading...</span>
         </div>
 
-        <div class="card">
-            <h4>Manual Overrides</h4>
-            <button class="btn-extend" onclick="setMode(2)">Extend Line (Out)</button>
-            <button class="btn-retract" onclick="setMode(1)">Retract Line (In)</button>
-            <button class="btn-auto" onclick="setMode(0)">Restore Auto Mode</button>
+        <div class="status-row">
+            <span class="status-label">Weather</span>
+            <span id="weather_status" class="status-value badge badge-clear">Loading...</span>
         </div>
+        
+        <!-- UPDATED: Changed from Motor Line to Box Location -->
+        <div class="status-row">
+            <span class="status-label">Box Location</span>
+            <span id="motor_status" class="status-value">Loading...</span>
+        </div>
+        
+        <div class="status-row">
+            <span class="status-label">System Mode</span>
+            <span id="mode_status" class="status-value">Loading...</span>
+        </div>
+    </div>
 
-        <div class="card">
-            <h4>Activity Log</h4>
-            <div class="log-box" id="log_container">
-                </div>
+    <div class="card">
+        <h4>Manual Overrides</h4>
+        <!-- UPDATED: Button text matches Parcel Box delivery logic -->
+        <button class="btn-extend" onclick="setMode(2)">Send Box Outside (To Gate)</button>
+        <button class="btn-retract" onclick="setMode(1)">Pull Box Inside (Secure)</button>
+        <button class="btn-auto" onclick="setMode(0)">Reset to Auto (Ready for Rider)</button>
+    </div>
+
+    <div class="card">
+        <h4>Activity Log</h4>
+        <div class="log-box" id="log_container">
+            <!-- Logs will be injected here by app.js -->
         </div>
+    </div>
+</div>
     </div>
 </div>
 
