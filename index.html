@@ -173,12 +173,6 @@
     <div class="card">
         <h4>Live Status</h4>
         
-        <!-- NEW: Parcel Detection Status Row -->
-        <div class="status-row">
-            <span class="status-label">Box Contents</span>
-            <span id="parcel_status" class="status-value" style="font-weight: bold;">Loading...</span>
-        </div>
-
         <div class="status-row">
             <span class="status-label">Weather</span>
             <span id="weather_status" class="status-value badge badge-clear">Loading...</span>
@@ -259,21 +253,6 @@
                 modeEl.innerText = modeText;
             }
 
-            // Update Parcel Status (THIS IS THE NEW PART)
-            let parcelEl = document.getElementById('parcel_status');
-            if(parcelEl) {
-                if (data.parcel_present === true) {
-                    parcelEl.innerText = "📦 Parcel Detected!";
-                    parcelEl.style.color = "#28a745"; // Green text
-                    parcelEl.style.fontWeight = "bold";
-                } else if (data.parcel_present === false) {
-                    parcelEl.innerText = "Empty";
-                    parcelEl.style.color = "#6c757d"; // Grey text
-                    parcelEl.style.fontWeight = "normal";
-                } else {
-                    parcelEl.innerText = "Loading...";
-                }
-            }
         }
     });
 
