@@ -188,11 +188,7 @@
             <span class="status-label">Box Location</span>
             <span id="motor_status" class="status-value">Loading...</span>
         </div>
-        
-        <div class="status-row">
-            <span class="status-label">System Mode</span>
-            <span id="mode_status" class="status-value">Loading...</span>
-        </div>
+    
     </div>
 
     <div class="card">
@@ -232,37 +228,52 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
+    // Global variable to track the current state for our logs
+    let currentState = {
+        weather: "Unknown",
+        motor: "Unknown",
+        light_condition: "Unknown"
+    };
+
     // 3. LISTEN FOR REAL-TIME STATUS CHANGES
     db.ref('system_status').on('value', (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            // Update Weather
+            // Save current weather and light condition
+            currentState.weather = data.weather || "Unknown";
+            currentState.light_condition = data.light_condition || "Unknown";
+
+            // FILTER THE BOX LOCATION TEXT
+            let rawMotor = data.motor || "Unknown";
+            if (rawMotor.includes("Inside") || rawMotor.includes("Retracted")) {
+                currentState.motor = "Inside";
+            } else if (rawMotor.includes("Outside") || rawMotor.includes("Extended")) {
+                currentState.motor = "Outside";
+            } else {
+                currentState.motor = rawMotor;
+            }
+
+            // Update Weather Display
             let weatherEl = document.getElementById('weather_status');
             if(weatherEl) {
-                weatherEl.innerText = data.weather || "Unknown";
-                weatherEl.className = (data.weather === 'Raining') ? 'status-value badge badge-rain' : 'status-value badge badge-clear';
+                weatherEl.innerText = currentState.weather;
+                weatherEl.className = (currentState.weather === 'Raining') ? 'status-value badge badge-rain' : 'status-value badge badge-clear';
             }
 
-            // Update Box Location (Motor)
+            // Update Box Location Display
             let motorEl = document.getElementById('motor_status');
-            if(motorEl) motorEl.innerText = data.motor || "Unknown";
-            
-            // Update System Mode (Now reads the detailed mode directly from hardware!)
-            let modeEl = document.getElementById('mode_status');
-            if(modeEl) {
-                modeEl.innerText = data.mode || "Unknown";
-            }
+            if(motorEl) motorEl.innerText = currentState.motor;
 
-            // Update Time of Day (Now uses 'light_condition' from hardware)
+            // Update Time of Day Display
             let dayNightEl = document.getElementById('day_night_status');
             if(dayNightEl) {
-                if (data.light_condition === "Bright / Day") {
+                if (currentState.light_condition === "Bright / Day") {
                     dayNightEl.innerText = "☀️ Day";
-                    dayNightEl.style.color = "#f39c12"; // Bright Orange
+                    dayNightEl.style.color = "#f39c12"; 
                     dayNightEl.style.fontWeight = "bold";
-                } else if (data.light_condition === "Dark / Night") {
+                } else if (currentState.light_condition === "Dark / Night") {
                     dayNightEl.innerText = "🌙 Night";
-                    dayNightEl.style.color = "#2c3e50"; // Dark Blue
+                    dayNightEl.style.color = "#2c3e50"; 
                     dayNightEl.style.fontWeight = "bold";
                 } else {
                     dayNightEl.innerText = "Loading...";
@@ -276,13 +287,26 @@
         let logHTML = "";
         const logs = [];
         snapshot.forEach((child) => { logs.push(child.val()); });
-        logs.reverse(); 
+        logs.reverse(); // Show newest at the top
 
         logs.forEach(log => {
+            let actionText = log.action || log.event_desc || "System Event";
+            
+            let detailsHTML = "";
+            if (log.weather || log.light_condition || log.box_status) {
+                detailsHTML = `
+                    <div style="font-size: 0.85em; color: #555; margin-top: 4px;">
+                        ☁️ Weather: ${log.weather || '-'} <br>
+                        🕒 Time: ${log.light_condition || '-'} <br>
+                        📦 Box: ${log.box_status || '-'}
+                    </div>`;
+            }
+
             logHTML += `
-                <div class="log-entry">
-                    <span class="log-time">${log.timestamp}</span>
-                    ${log.event_desc}
+                <div class="log-entry" style="border-bottom: 1px solid #eee; padding: 10px 0;">
+                    <div class="log-time" style="font-size: 0.8em; color: #888; margin-bottom: 4px;">${log.timestamp}</div>
+                    <div style="font-weight: 500; color: #333;">${actionText}</div>
+                    ${detailsHTML}
                 </div>`;
         });
         let logContainer = document.getElementById('log_container');
@@ -291,31 +315,31 @@
 
     // 5. SEND BUTTON COMMANDS TO FIREBASE
     function setMode(modeValue) {
-        // Send the Manual command to Firebase (Hardware looks for override_mode 1 or 2)
-        db.ref('system_status').update({
-            override_mode: modeValue
-        });
+        db.ref('system_status').update({ override_mode: modeValue });
 
-        // Log the manual action
-        let modeText = (modeValue === 1) ? "Manual Retract" : "Manual Extend";
-        let now = new Date().toLocaleTimeString();
+        let modeText = (modeValue === 1) ? "Manual Retract (Inside)" : "Manual Extend (Outside)";
+        let now = new Date().toLocaleString('en-GB'); 
         
         db.ref('event_logs').push({
             timestamp: now,
-            event_desc: `User triggered: ${modeText}`
+            action: `User triggered: ${modeText}`,
+            weather: currentState.weather,
+            light_condition: currentState.light_condition,
+            box_status: currentState.motor // Now this will just say "Inside" or "Outside"
         });
 
         // Automatically revert override to Auto Mode (0) after 4 seconds
         setTimeout(() => {
-            db.ref('system_status').update({
-                override_mode: 0
-            });
+            db.ref('system_status').update({ override_mode: 0 });
             
             db.ref('event_logs').push({
-                timestamp: new Date().toLocaleTimeString(),
-                event_desc: `System auto-reverted to Auto Mode`
+                timestamp: new Date().toLocaleString('en-GB'),
+                action: `System auto-reverted to Auto Mode`,
+                weather: currentState.weather,
+                light_condition: currentState.light_condition,
+                box_status: currentState.motor
             });
-        }, 4000); // 4 seconds delay
+        }, 4000);
     }
 
     // Initialize default values if the database is empty
@@ -325,7 +349,6 @@
                 weather: "Clear", 
                 motor: "Retracted / Inside", 
                 override_mode: 0,
-                mode: "Automatic",
                 light_condition: "Bright / Day"
             });
         }
