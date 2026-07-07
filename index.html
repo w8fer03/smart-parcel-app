@@ -228,12 +228,15 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Global variable to track the current state for our logs
+    // Global variables to track the current state and detect changes
     let currentState = {
         weather: "Unknown",
         motor: "Unknown",
         light_condition: "Unknown"
     };
+    
+    let lastSeenMode = null; 
+    let isFirstLoad = true; // Prevents the website from creating a log just by refreshing the page
 
     // 3. LISTEN FOR REAL-TIME STATUS CHANGES
     db.ref('system_status').on('value', (snapshot) => {
@@ -243,7 +246,7 @@
             currentState.weather = data.weather || "Unknown";
             currentState.light_condition = data.light_condition || "Unknown";
 
-            // FILTER THE BOX LOCATION TEXT
+            // Filter Box Location Text ("Retracted / Inside" -> "Inside")
             let rawMotor = data.motor || "Unknown";
             if (rawMotor.includes("Inside") || rawMotor.includes("Retracted")) {
                 currentState.motor = "Inside";
@@ -253,18 +256,16 @@
                 currentState.motor = rawMotor;
             }
 
-            // Update Weather Display
+            // Update UI Elements
             let weatherEl = document.getElementById('weather_status');
             if(weatherEl) {
                 weatherEl.innerText = currentState.weather;
                 weatherEl.className = (currentState.weather === 'Raining') ? 'status-value badge badge-rain' : 'status-value badge badge-clear';
             }
 
-            // Update Box Location Display
             let motorEl = document.getElementById('motor_status');
             if(motorEl) motorEl.innerText = currentState.motor;
 
-            // Update Time of Day Display
             let dayNightEl = document.getElementById('day_night_status');
             if(dayNightEl) {
                 if (currentState.light_condition === "Bright / Day") {
@@ -279,6 +280,32 @@
                     dayNightEl.innerText = "Loading...";
                 }
             }
+
+            // ==========================================
+            // NEW: AUTOMATIC BACKGROUND LOGGING
+            // ==========================================
+            let currentSystemMode = data.mode || "Automatic";
+
+            // If it's not the first time loading, AND the hardware changed its mode
+            if (!isFirstLoad && lastSeenMode !== currentSystemMode) {
+                
+                // We ignore "Manual" modes here because the manual buttons already create their own logs!
+                if (!currentSystemMode.includes("Manual")) {
+                    let now = new Date().toLocaleString('en-GB'); 
+                    
+                    db.ref('event_logs').push({
+                        timestamp: now,
+                        action: `Hardware Auto-Trigger: ${currentSystemMode}`,
+                        weather: currentState.weather,
+                        light_condition: currentState.light_condition,
+                        box_status: currentState.motor
+                    });
+                }
+            }
+            
+            // Save this mode for the next check
+            lastSeenMode = currentSystemMode;
+            isFirstLoad = false; 
         }
     });
 
@@ -287,7 +314,7 @@
         let logHTML = "";
         const logs = [];
         snapshot.forEach((child) => { logs.push(child.val()); });
-        logs.reverse(); // Show newest at the top
+        logs.reverse(); 
 
         logs.forEach(log => {
             let actionText = log.action || log.event_desc || "System Event";
@@ -325,10 +352,9 @@
             action: `User triggered: ${modeText}`,
             weather: currentState.weather,
             light_condition: currentState.light_condition,
-            box_status: currentState.motor // Now this will just say "Inside" or "Outside"
+            box_status: (modeValue === 1) ? "Inside" : "Outside"
         });
 
-        // Automatically revert override to Auto Mode (0) after 4 seconds
         setTimeout(() => {
             db.ref('system_status').update({ override_mode: 0 });
             
@@ -349,7 +375,8 @@
                 weather: "Clear", 
                 motor: "Retracted / Inside", 
                 override_mode: 0,
-                light_condition: "Bright / Day"
+                light_condition: "Bright / Day",
+                mode: "Automatic"
             });
         }
     });
