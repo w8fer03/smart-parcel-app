@@ -172,6 +172,11 @@
     <div class="content">
     <div class="card">
         <h4>Live Status</h4>
+
+        <div class="status-row">
+            <span class="status-label">Time of Day</span>
+            <span id="day_night_status" class="status-value">Loading...</span>
+        </div>
         
         <div class="status-row">
             <span class="status-label">Weather</span>
@@ -303,6 +308,32 @@
             });
         }, 4000); // 4000 milliseconds = 4 seconds delay
     }
+
+    // 6. CHECK DAY OR NIGHT LOCALLY
+    function updateDayNightStatus() {
+        const currentHour = new Date().getHours();
+        // Update Time of Day (From Hardware LDR)
+            let dayNightEl = document.getElementById('day_night_status');
+            if(dayNightEl) {
+                if (data.day_night === "Day") {
+                    dayNightEl.innerText = "☀️ Day";
+                    dayNightEl.style.color = "#f39c12"; // Bright Orange
+                    dayNightEl.style.fontWeight = "bold";
+                } else if (data.day_night === "Night") {
+                    dayNightEl.innerText = "🌙 Night";
+                    dayNightEl.style.color = "#2c3e50"; // Dark Blue
+                    dayNightEl.style.fontWeight = "bold";
+                } else {
+                    dayNightEl.innerText = "Loading...";
+                }
+            }
+    }
+
+    // Run the check immediately when the page loads
+    updateDayNightStatus();
+    
+    // Check again every 60 seconds just in case the sun sets while the page is open!
+    setInterval(updateDayNightStatus, 60000);
 
     // Initialize default values if the database is empty
     db.ref('system_status').once('value', snapshot => {
