@@ -216,21 +216,19 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
 <script>
-    // 1. FIREBASE CONFIGURATION (Replace with your details!)
-    // Go to Firebase Project Settings -> General -> Scroll down and add a "Web App" (</> icon) to get these keys.
+    // 1. FIREBASE CONFIGURATION 
     const firebaseConfig = {
- apiKey: "AIzaSyBBb0bF5VdgIm7dGpY53NuXlxsdnJvAhgg",
-  authDomain: "smartparcel-64186.firebaseapp.com",
-  databaseURL: "https://smartparcel-64186-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "smartparcel-64186",
-  storageBucket: "smartparcel-64186.firebasestorage.app",
-  messagingSenderId: "971595489078",
-  appId: "1:971595489078:web:74666a96067e4504b65d97",
-  measurementId: "G-FPDBYZZRF6"
-};
+      apiKey: "AIzaSyBBb0bF5VdgIm7dGpY53NuXlxsdnJvAhgg",
+      authDomain: "smartparcel-64186.firebaseapp.com",
+      databaseURL: "https://smartparcel-64186-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "smartparcel-64186",
+      storageBucket: "smartparcel-64186.firebasestorage.app",
+      messagingSenderId: "971595489078",
+      appId: "1:971595489078:web:74666a96067e4504b65d97",
+      measurementId: "G-FPDBYZZRF6"
+    };
 
-
-   // 2. INITIALIZE FIREBASE
+    // 2. INITIALIZE FIREBASE
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
@@ -245,26 +243,37 @@
                 weatherEl.className = (data.weather === 'Raining') ? 'status-value badge badge-rain' : 'status-value badge badge-clear';
             }
 
-            // Update Motor
+            // Update Box Location (Motor)
             let motorEl = document.getElementById('motor_status');
             if(motorEl) motorEl.innerText = data.motor || "Unknown";
             
-            // Update Mode
+            // Update System Mode (Now reads the detailed mode directly from hardware!)
             let modeEl = document.getElementById('mode_status');
             if(modeEl) {
-                let modeText = "Auto";
-                if(data.override_mode === 1) modeText = "Manual Retract";
-                if(data.override_mode === 2) modeText = "Manual Extend";
-                modeEl.innerText = modeText;
+                modeEl.innerText = data.mode || "Unknown";
             }
 
+            // Update Time of Day (Now uses 'light_condition' from hardware)
+            let dayNightEl = document.getElementById('day_night_status');
+            if(dayNightEl) {
+                if (data.light_condition === "Bright / Day") {
+                    dayNightEl.innerText = "☀️ Day";
+                    dayNightEl.style.color = "#f39c12"; // Bright Orange
+                    dayNightEl.style.fontWeight = "bold";
+                } else if (data.light_condition === "Dark / Night") {
+                    dayNightEl.innerText = "🌙 Night";
+                    dayNightEl.style.color = "#2c3e50"; // Dark Blue
+                    dayNightEl.style.fontWeight = "bold";
+                } else {
+                    dayNightEl.innerText = "Loading...";
+                }
+            }
         }
     });
 
     // 4. LISTEN FOR REAL-TIME LOGS
     db.ref('event_logs').limitToLast(10).on('value', (snapshot) => {
         let logHTML = "";
-        // Firebase orders by key, so we reverse it to show newest at the top
         const logs = [];
         snapshot.forEach((child) => { logs.push(child.val()); });
         logs.reverse(); 
@@ -282,12 +291,12 @@
 
     // 5. SEND BUTTON COMMANDS TO FIREBASE
     function setMode(modeValue) {
-        // 1. Send the Manual command to Firebase
+        // Send the Manual command to Firebase (Hardware looks for override_mode 1 or 2)
         db.ref('system_status').update({
             override_mode: modeValue
         });
 
-        // 2. Log the manual action
+        // Log the manual action
         let modeText = (modeValue === 1) ? "Manual Retract" : "Manual Extend";
         let now = new Date().toLocaleTimeString();
         
@@ -296,7 +305,7 @@
             event_desc: `User triggered: ${modeText}`
         });
 
-        // 3. Automatically revert to Auto Mode (0) after 4 seconds
+        // Automatically revert override to Auto Mode (0) after 4 seconds
         setTimeout(() => {
             db.ref('system_status').update({
                 override_mode: 0
@@ -306,47 +315,21 @@
                 timestamp: new Date().toLocaleTimeString(),
                 event_desc: `System auto-reverted to Auto Mode`
             });
-        }, 4000); // 4000 milliseconds = 4 seconds delay
+        }, 4000); // 4 seconds delay
     }
-
-    // 6. CHECK DAY OR NIGHT LOCALLY
-    function updateDayNightStatus() {
-        const currentHour = new Date().getHours();
-        // Update Time of Day (From Hardware LDR)
-            let dayNightEl = document.getElementById('day_night_status');
-            if(dayNightEl) {
-                if (data.day_night === "Day") {
-                    dayNightEl.innerText = "☀️ Day";
-                    dayNightEl.style.color = "#f39c12"; // Bright Orange
-                    dayNightEl.style.fontWeight = "bold";
-                } else if (data.day_night === "Night") {
-                    dayNightEl.innerText = "🌙 Night";
-                    dayNightEl.style.color = "#2c3e50"; // Dark Blue
-                    dayNightEl.style.fontWeight = "bold";
-                } else {
-                    dayNightEl.innerText = "Loading...";
-                }
-            }
-    }
-
-    // Run the check immediately when the page loads
-    updateDayNightStatus();
-    
-    // Check again every 60 seconds just in case the sun sets while the page is open!
-    setInterval(updateDayNightStatus, 60000);
 
     // Initialize default values if the database is empty
     db.ref('system_status').once('value', snapshot => {
         if (!snapshot.exists()) {
             db.ref('system_status').set({ 
                 weather: "Clear", 
-                motor: "Retracted", 
+                motor: "Retracted / Inside", 
                 override_mode: 0,
-                parcel_present: false // Added default parcel state
+                mode: "Automatic",
+                light_condition: "Bright / Day"
             });
         }
     });
 </script>
-
 </body>
 </html>
